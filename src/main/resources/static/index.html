@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleKafka+ | Real-time Message Broker Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover: rgba(255, 255, 255, 0.12);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      --accent: #06b6d4;
+      --accent-glow: rgba(6, 182, 212, 0.25);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(11, 15, 25, 0.8);
+    }
+
+    .header-inner {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: white;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #9ca3af);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-tag {
+      font-size: 0.7rem;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #c7d2fe;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.82rem;
+      color: #6ee7b7;
+      font-weight: 500;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Metric Cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .metric-card:hover {
+      border-color: var(--card-hover);
+      transform: translateY(-2px);
+    }
+
+    .metric-title {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      font-family: var(--font-mono);
+    }
+
+    .metric-sub {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    /* Layout Columns */
+    .app-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .app-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card Panels */
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Topic List */
+    .topic-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .topic-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .topic-item:hover {
+      background: rgba(99, 102, 241, 0.08);
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .topic-item.active {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--primary);
+    }
+
+    .topic-name {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .topic-stats {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      font-weight: 500;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      transition: border-color 0.2s ease;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+
+    textarea {
+      font-family: var(--font-mono);
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: var(--primary);
+      color: white;
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 0.65rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
+
+    .btn-sm {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.78rem;
+      width: auto;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Tab navigation */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 1.25rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.65rem 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: var(--primary);
+    }
+
+    /* Messages stream table / cards */
+    .messages-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    .message-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--card-border);
+      border-left: 3px solid var(--primary);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
+    }
+
+    .message-card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      background: rgba(99, 102, 241, 0.04);
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .offset-pill {
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .msg-key {
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .msg-value {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #e5e7eb;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Toast notification */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: #1f2937;
+      border: 1px solid var(--card-border);
+      padding: 0.85rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+
+    #toast.success { border-color: var(--success); color: #6ee7b7; }
+    #toast.error { border-color: var(--danger); color: #fca5a5; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="logo-badge">K+</div>
+        <div>
+          <span class="brand-title">SimpleKafka+</span>
+          <span class="brand-tag">v1.0.0</span>
+        </div>
+      </div>
+      <div class="status-indicator">
+        <div class="pulse-dot"></div>
+        <span id="healthStatus">CONNECTING...</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Top Statistics Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-title">Broker Status</span>
+        <span class="metric-value" id="metricBrokerStatus" style="color: #6ee7b7;">UP</span>
+        <span class="metric-sub" id="metricUptime">Zero external dependencies</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Total Active Topics</span>
+        <span class="metric-value" id="metricTopicCount">0</span>
+        <span class="metric-sub">JSONL append-only logs</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Total Messages Loaded</span>
+        <span class="metric-value" id="metricMessageCount">0</span>
+        <span class="metric-sub">Across all partitions</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Storage Engine</span>
+        <span class="metric-value" style="font-size: 1.4rem;">JSONL Log</span>
+        <span class="metric-sub">Auto-recovered from disk</span>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="app-grid">
+      <!-- Left Column: Topics Panel & Create Topic -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Topics</h2>
+            <button class="btn btn-secondary btn-sm" onclick="fetchTopics()">↻ Refresh</button>
+          </div>
+          <div class="topic-list" id="topicList">
+            <div class="empty-state">No topics found. Create your first topic below.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Create New Topic</h2>
+          </div>
+          <form id="createTopicForm" onsubmit="handleCreateTopic(event)">
+            <div class="form-group">
+              <label for="newTopicName">Topic Name</label>
+              <input type="text" id="newTopicName" placeholder="e.g. order-events" required pattern="^[a-zA-Z0-9._-]+$">
+            </div>
+            <button type="submit" class="btn">+ Create Topic</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right Column: Tabs (Publish / Consume / API Docs) -->
+      <div class="panel">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('consumeTab')">Stream Consumer</button>
+          <button class="tab-btn" onclick="switchTab('publishTab')">Publish Message</button>
+          <button class="tab-btn" onclick="switchTab('apiTab')">API Quick Reference</button>
+        </div>
+
+        <!-- Tab 1: Stream Consumer -->
+        <div id="consumeTab">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.75rem; align-items: end; margin-bottom: 1.5rem;">
+            <div>
+              <label for="consumerTopicSelect">Selected Topic</label>
+              <select id="consumerTopicSelect" onchange="loadMessages()"></select>
+            </div>
+            <div>
+              <label for="fromOffsetInput">From Offset</label>
+              <input type="number" id="fromOffsetInput" value="0" min="0">
+            </div>
+            <div>
+              <label for="limitInput">Limit</label>
+              <input type="number" id="limitInput" value="20" min="1" max="500">
+            </div>
+            <div>
+              <button class="btn" onclick="loadMessages()">Fetch</button>
+            </div>
+          </div>
+
+          <div class="messages-container" id="messagesContainer">
+            <div class="empty-state">Select a topic and click "Fetch" to stream commit log records.</div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Publish Message -->
+        <div id="publishTab" style="display: none;">
+          <form onsubmit="handlePublishMessage(event)">
+            <div class="form-group">
+              <label for="publishTopicSelect">Destination Topic</label>
+              <select id="publishTopicSelect" required></select>
+            </div>
+            <div class="form-group">
+              <label for="publishKeyInput">Message Key (Optional grouping key)</label>
+              <input type="text" id="publishKeyInput" placeholder="e.g. user-8492">
+            </div>
+            <div class="form-group">
+              <label for="publishValueInput">Message Payload (String or JSON)</label>
+              <textarea id="publishValueInput" rows="5" placeholder='{"status": "PLACED", "amount": 199.99}' required></textarea>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setPayload('order')">Order Template</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setPayload('sensor')">IoT Sensor Template</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="setPayload('auth')">Auth Event Template</button>
+            </div>
+            <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--primary), var(--accent));">
+              🚀 Publish to Commit Log
+            </button>
+          </form>
+        </div>
+
+        <!-- Tab 3: API Reference -->
+        <div id="apiTab" style="display: none;">
+          <div style="display: flex; flex-direction: column; gap: 1rem; font-family: var(--font-mono); font-size: 0.85rem;">
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span style="color: #6ee7b7; font-weight: 700;">GET</span> /health
+              <p style="color: var(--text-muted); font-family: var(--font-sans); margin-top: 0.25rem;">Health check & topic count status.</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span style="color: #6ee7b7; font-weight: 700;">GET</span> /topics
+              <p style="color: var(--text-muted); font-family: var(--font-sans); margin-top: 0.25rem;">List all active topics and metadata.</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span style="color: #93c5fd; font-weight: 700;">POST</span> /topics
+              <p style="color: var(--text-muted); font-family: var(--font-sans); margin-top: 0.25rem;">Create a new topic. Body: <code>{"name":"events"}</code></p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span style="color: #93c5fd; font-weight: 700;">POST</span> /topics/{topic}/messages
+              <p style="color: var(--text-muted); font-family: var(--font-sans); margin-top: 0.25rem;">Publish message. Body: <code>{"key":"k1", "value":"..."}</code></p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span style="color: #6ee7b7; font-weight: 700;">GET</span> /topics/{topic}/messages?offset=0&limit=10
+              <p style="color: var(--text-muted); font-family: var(--font-sans); margin-top: 0.25rem;">Consume sequential records with pagination.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast"></div>
+
+  <footer>
+    SimpleKafka+ — Persistent Messaging Broker in Pure Java 17 • Built for Amazon SDE Intern Portfolio
+  </footer>
+
+  <script>
+    let activeTopic = null;
+    let topicsCache = [];
+
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('healthStatus').innerText = 'BROKER ONLINE';
+          document.getElementById('metricBrokerStatus').innerText = data.status || 'UP';
+          document.getElementById('metricTopicCount').innerText = data.topicsCount ?? 0;
+        } else {
+          document.getElementById('healthStatus').innerText = 'OFFLINE';
+        }
+      } catch (e) {
+        document.getElementById('healthStatus').innerText = 'DISCONNECTED';
+      }
+    }
+
+    async function fetchTopics() {
+      try {
+        const res = await fetch('/topics');
+        if (!res.ok) return;
+        topicsCache = await res.json();
+
+        const listEl = document.getElementById('topicList');
+        const consumerSelect = document.getElementById('consumerTopicSelect');
+        const publishSelect = document.getElementById('publishTopicSelect');
+
+        if (topicsCache.length === 0) {
+          listEl.innerHTML = '<div class="empty-state">No topics found. Create your first topic below.</div>';
+          consumerSelect.innerHTML = '<option value="">(No topics)</option>';
+          publishSelect.innerHTML = '<option value="">(No topics)</option>';
+          document.getElementById('metricMessageCount').innerText = 0;
+          return;
+        }
+
+        let totalMessages = 0;
+        listEl.innerHTML = '';
+        consumerSelect.innerHTML = '';
+        publishSelect.innerHTML = '';
+
+        topicsCache.forEach((topic, idx) => {
+          totalMessages += (topic.messageCount || 0);
+
+          // Build topic list item
+          const item = document.createElement('div');
+          item.className = 'topic-item' + (activeTopic === topic.name ? ' active' : '');
+          item.onclick = () => selectTopic(topic.name);
+          item.innerHTML = `
+            <div>
+              <div class="topic-name">${topic.name}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">nextOffset: ${topic.nextOffset}</div>
+            </div>
+            <div class="topic-stats">${topic.messageCount} msgs</div>
+          `;
+          listEl.appendChild(item);
+
+          // Populate selects
+          const opt1 = new Option(topic.name + ' (' + topic.messageCount + ' msgs)', topic.name);
+          const opt2 = new Option(topic.name, topic.name);
+          consumerSelect.add(opt1);
+          publishSelect.add(opt2);
+        });
+
+        document.getElementById('metricTopicCount').innerText = topicsCache.length;
+        document.getElementById('metricMessageCount').innerText = totalMessages;
+
+        if (!activeTopic && topicsCache.length > 0) {
+          selectTopic(topicsCache[0].name);
+        } else if (activeTopic) {
+          consumerSelect.value = activeTopic;
+          publishSelect.value = activeTopic;
+        }
+      } catch (err) {
+        console.error('Failed to fetch topics', err);
+      }
+    }
+
+    function selectTopic(name) {
+      activeTopic = name;
+      document.querySelectorAll('.topic-item').forEach(el => {
+        if (el.querySelector('.topic-name').innerText === name) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      });
+      document.getElementById('consumerTopicSelect').value = name;
+      document.getElementById('publishTopicSelect').value = name;
+      loadMessages();
+    }
+
+    async function handleCreateTopic(e) {
+      e.preventDefault();
+      const input = document.getElementById('newTopicName');
+      const name = input.value.trim();
+      if (!name) return;
+
+      try {
+        const res = await fetch('/topics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+
+        if (res.status === 201) {
+          showToast('Topic "' + name + '" created successfully!', 'success');
+          input.value = '';
+          await fetchTopics();
+          selectTopic(name);
+        } else {
+          const err = await res.json();
+          showToast(err.error || 'Failed to create topic', 'error');
+        }
+      } catch (err) {
+        showToast('Error connecting to broker', 'error');
+      }
+    }
+
+    async function loadMessages() {
+      const topic = document.getElementById('consumerTopicSelect').value;
+      if (!topic) return;
+
+      const offset = document.getElementById('fromOffsetInput').value || 0;
+      const limit = document.getElementById('limitInput').value || 20;
+
+      const container = document.getElementById('messagesContainer');
+      container.innerHTML = '<div class="empty-state">Loading messages from offset ' + offset + '...</div>';
+
+      try {
+        const res = await fetch(`/topics/${encodeURIComponent(topic)}/messages?offset=${offset}&limit=${limit}`);
+        if (!res.ok) {
+          const err = await res.json();
+          container.innerHTML = `<div class="empty-state" style="color: var(--danger);">${err.error || 'Failed to load messages'}</div>`;
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.messages || data.messages.length === 0) {
+          container.innerHTML = `<div class="empty-state">No messages found at offset ${offset}. Topic has ${data.count} returned.</div>`;
+          return;
+        }
+
+        container.innerHTML = '';
+        data.messages.forEach(msg => {
+          const card = document.createElement('div');
+          card.className = 'message-card';
+          const time = new Date(msg.timestamp).toLocaleTimeString();
+          card.innerHTML = `
+            <div class="message-meta">
+              <div>
+                <span class="offset-pill">offset: ${msg.offset}</span>
+                ${msg.key ? `<span class="msg-key" style="margin-left: 0.5rem;">key: ${escapeHtml(msg.key)}</span>` : ''}
+              </div>
+              <div>${time} &bull; <span style="font-family: var(--font-mono); font-size: 0.72rem;">${msg.id.substring(0, 8)}...</span></div>
+            </div>
+            <div class="msg-value">${escapeHtml(msg.value)}</div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        container.innerHTML = '<div class="empty-state" style="color: var(--danger);">Error loading messages.</div>';
+      }
+    }
+
+    async function handlePublishMessage(e) {
+      e.preventDefault();
+      const topic = document.getElementById('publishTopicSelect').value;
+      const key = document.getElementById('publishKeyInput').value.trim();
+      const value = document.getElementById('publishValueInput').value.trim();
+
+      if (!topic) {
+        showToast('Please select or create a topic first', 'error');
+        return;
+      }
+      if (!value) {
+        showToast('Message payload is required', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/topics/${encodeURIComponent(topic)}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: key || null, value })
+        });
+
+        if (res.status === 201) {
+          const msg = await res.json();
+          showToast(`Published to offset ${msg.offset} (ID: ${msg.id.substring(0, 8)})!`, 'success');
+          document.getElementById('publishValueInput').value = '';
+          await fetchTopics();
+          if (activeTopic === topic) {
+            loadMessages();
+          }
+        } else {
+          const err = await res.json();
+          showToast(err.error || 'Failed to publish message', 'error');
+        }
+      } catch (err) {
+        showToast('Error publishing message', 'error');
+      }
+    }
+
+    function switchTab(tabId) {
+      document.getElementById('consumeTab').style.display = tabId === 'consumeTab' ? 'block' : 'none';
+      document.getElementById('publishTab').style.display = tabId === 'publishTab' ? 'block' : 'none';
+      document.getElementById('apiTab').style.display = tabId === 'apiTab' ? 'block' : 'none';
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      if (tabId === 'consumeTab') {
+        loadMessages();
+      }
+    }
+
+    function setPayload(type) {
+      const area = document.getElementById('publishValueInput');
+      const keyInput = document.getElementById('publishKeyInput');
+      if (type === 'order') {
+        keyInput.value = 'order-' + Math.floor(1000 + Math.random() * 9000);
+        area.value = JSON.stringify({
+          orderId: keyInput.value,
+          customerId: "cust-42",
+          items: [{ sku: "MACBOOK-M3", qty: 1, price: 1299 }],
+          total: 1299.00,
+          currency: "USD",
+          status: "PLACED"
+        }, null, 2);
+      } else if (type === 'sensor') {
+        keyInput.value = 'sensor-temp-01';
+        area.value = JSON.stringify({
+          sensorId: "sensor-temp-01",
+          temperatureCelsius: 22.4,
+          humidityPercent: 48.1,
+          batteryLevel: 94
+        }, null, 2);
+      } else if (type === 'auth') {
+        keyInput.value = 'user-admin';
+        area.value = JSON.stringify({
+          eventType: "USER_LOGIN_SUCCESS",
+          ipAddress: "192.168.1.1",
+          userAgent: "Mozilla/5.0",
+          timestamp: new Date().toISOString()
+        }, null, 2);
+      }
+    }
+
+    function showToast(text, type = 'success') {
+      const el = document.getElementById('toast');
+      el.innerText = text;
+      el.className = type;
+      el.style.display = 'flex';
+      setTimeout(() => {
+        el.style.display = 'none';
+      }, 3500);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Initial load
+    checkHealth();
+    fetchTopics();
+    setInterval(checkHealth, 5000);
+  </script>
+</body>
+</html>

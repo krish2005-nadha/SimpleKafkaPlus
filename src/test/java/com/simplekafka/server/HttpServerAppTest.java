@@ -69,6 +69,27 @@ class HttpServerAppTest {
     }
 
     @Test
+    @DisplayName("GET / and /dashboard serves web console dashboard")
+    void testWebConsoleDashboard() throws Exception {
+        HttpRequest rootReq = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/"))
+                .GET()
+                .build();
+        HttpResponse<String> rootRes = client.send(rootReq, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, rootRes.statusCode());
+        assertTrue(rootRes.headers().firstValue("Content-Type").orElse("").contains("text/html"));
+        assertTrue(rootRes.body().contains("SimpleKafka+"));
+
+        HttpRequest dashReq = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/dashboard"))
+                .GET()
+                .build();
+        HttpResponse<String> dashRes = client.send(dashReq, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, dashRes.statusCode());
+        assertTrue(dashRes.body().contains("SimpleKafka+"));
+    }
+
+    @Test
     @DisplayName("Topic management: create, duplicate conflict, and list")
     void testTopicLifecycle() throws Exception {
         // Create topic

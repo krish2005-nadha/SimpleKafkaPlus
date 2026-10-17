@@ -36,10 +36,22 @@ public class HttpServerApp {
     private final HttpServer server;
     private final Broker broker;
     private final ObjectMapper objectMapper;
+    private final byte[] indexHtmlBytes;
 
     public HttpServerApp(Broker broker, int port) throws IOException {
         this.broker = broker;
         this.objectMapper = new ObjectMapper();
+
+        byte[] htmlBytes;
+        try (InputStream is = getClass().getResourceAsStream("/static/index.html")) {
+            if (is != null) {
+                htmlBytes = is.readAllBytes();
+            } else {
+                htmlBytes = "<h1>SimpleKafka+ Broker</h1>".getBytes(StandardCharsets.UTF_8);
+            }
+        }
+        this.indexHtmlBytes = htmlBytes;
+
         this.server = HttpServer.create(new InetSocketAddress(port), 0);
         this.server.setExecutor(Executors.newFixedThreadPool(16));
 
@@ -47,6 +59,7 @@ public class HttpServerApp {
     }
 
     private void setupRoutes() {
+        server.createContext("/", new RootHandler());
         server.createContext("/health", new HealthHandler());
         server.createContext("/topics", new TopicsHandler());
     }
@@ -61,6 +74,33 @@ public class HttpServerApp {
 
     public int getPort() {
         return server.getAddress().getPort();
+    }
+
+    private class RootHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            String path = exchange.getRequestURI().getPath();
+            if ("/".equals(path) || "/dashboard".equals(path) || "/index.html".equals(path)) {
+                if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendError(exchange, 405, "Method Not Allowed");
+                    return;
+                }
+                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                exchange.sendResponseHeaders(200, indexHtmlBytes.length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(indexHtmlBytes);
+                }
+                return;
+            }
+
+            if ("/favicon.ico".equals(path)) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+
+            sendError(exchange, 404, "Endpoint not found: " + path);
+        }
     }
 
     private class HealthHandler implements HttpHandler {

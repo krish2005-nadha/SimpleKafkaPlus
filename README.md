@@ -79,6 +79,19 @@ The broker will start on `http://127.0.0.1:8000`.
 
 ---
 
+## 🖥️ Web Console Dashboard
+
+Open your browser to:
+- **`http://127.0.0.1:8000/`** (or `http://127.0.0.1:8000/dashboard`)
+
+The embedded web console provides:
+- **Real-time Broker Metrics**: Live health badge, topic count, total messages across partitions.
+- **Topic Explorer**: Create new topics and inspect commit log status.
+- **Message Publisher**: Send messages with keys and formatted JSON payloads (includes order, IoT, and auth templates).
+- **Stream Consumer**: Inspect messages starting from any offset with pagination and timestamp formatting.
+
+---
+
 ## 📡 REST API Reference
 
 All requests and responses use `application/json`.
